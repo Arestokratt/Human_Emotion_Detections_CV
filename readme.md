@@ -13,8 +13,8 @@ The model achieved **88.7% test accuracy**, with a strong balance between **prec
 
 **Dataset source:** [Human Emotions Dataset(HES)](https://www.kaggle.com/datasets/muhammadhananasghar/human-emotions-datasethes)
 
-**Project documentation:** [View full project documentation and demo](https://adittomahmood.vercel.app/project-docs/2)
+**Project documentation:** [View full project documentation and demo](https://adittomahmood.vercel.app/project-docs/5)
 
-**Live app:** [Try the human emotion detection system](https://human-emotion-detection.streamlit.app/)
+**Live app:** [Try the human emotion detection system](https://human-emotion-detection-cv.streamlit.app/)
 
 **Connect:** [LinkedIn](https://linkedin.com/in/adittomahmood)
