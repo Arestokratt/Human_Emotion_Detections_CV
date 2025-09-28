@@ -1,20 +1,36 @@
 # Human Emotion Detection (Computer Vision)
 
-This project leverages **ResNet50 deep learning architecture** to automatically classify facial images into three emotions: **Angry, Happy, and Sad**. The system aims to automate traditional emotion recognition.
+* **Dataset**:
 
-The model was trained on a dataset of **9,077 labeled facial images** (6,799 for training and validation, 2,278 for testing). Data augmentation strategies such as **rotation, flipping, zoom, translation, contrast, and brightness adjustments** were applied to improve generalization. Additionally, a **CutMix-inspired augmentation** was used to enhance generalization.
+  * Total: **26,404 labeled images**
+  * Train/Validation: **19,278 images (80/20 split)**
+  * Test: **7,126 images**
+  * Source: [Human Emotions Dataset (HES)](https://www.kaggle.com/datasets/muhammadhananasghar/human-emotions-datasethes)
 
-Training used **transfer learning** with ResNet50 pretrained on ImageNet:
+* **Data Augmentation**:
+  Random rotation, flipping, zoom, translation, contrast, and brightness adjustments.
+  Additionally,**CutMix-inspired augmentation** was applied.
 
-1. **Phase 1:** Freeze base layers and train only the classifier head for 5 epochs.
-2. **Phase 2:** Fine-tune the last 75 layers of the base model for 20 epochs with **AdamW optimizer and cosine decay learning rate**.
+* **Training Strategy**:
 
-The model achieved **88.7% test accuracy**, with a strong balance between **precision (88–92%)** and **recall (82–92%)** across all three classes. Confusion matrix analysis shows reliable class separation, especially for Happy and Sad emotions.
+  1. **Phase 1** – Freeze base ResNet50 layers, train classifier head for 10 epochs.
+  2. **Phase 2** – Fine-tune last 75 layers of ResNet50 for 25 epochs.
 
-**Dataset source:** [Human Emotions Dataset(HES)](https://www.kaggle.com/datasets/muhammadhananasghar/human-emotions-datasethes)
+  * Optimizer: **AdamW**
+  * Learning rate: **Cosine decay + ReduceLROnPlateau**
+  * Regularization: **L2 weight decay**
 
-**Project documentation:** [View full project documentation and demo](https://adittomahmood.vercel.app/project-docs/5)
+## Results
 
-**Live app:** [Try the human emotion detection system](https://human-emotion-detection-cv.streamlit.app/)
+* **Test Accuracy**: **91.4%**
 
-**Connect:** [LinkedIn](https://linkedin.com/in/adittomahmood)
+
+
+## Demo 
+
+* **Live App**: [Try it here](https://human-emotion-detection-cv.streamlit.app/)
+* **Full Project Docs**: [Read here](https://adittomahmood.vercel.app/project-docs/5)
+
+## Connect
+
+* [LinkedIn](https://linkedin.com/in/adittomahmood)

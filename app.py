@@ -42,7 +42,7 @@ def load_model():
     model_path = "best_model.keras"
     if not os.path.exists(model_path):
         import gdown
-        url = "https://drive.google.com/uc?id=1pIcyCr8Mf86ppFaKDPcfKEXteFDpRWpP"
+        url = "https://drive.google.com/uc?id=1iJbJezrZGeZgpGayp0G0nEXHPTZnp9cn" 
         with st.spinner("Downloading model from Google Drive..."):
             gdown.download(url, model_path, quiet=False)
     return tf.keras.models.load_model(model_path)
