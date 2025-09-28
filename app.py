@@ -33,15 +33,15 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# --- Headers ---
+
 st.markdown('<h1 class="main-header">Human Emotion Detection</h1>', unsafe_allow_html=True)
 st.markdown('<h2 class="subheader">Upload a facial image</h2>', unsafe_allow_html=True)
 
-# --- Constants ---
+
 IMG_SIZE = (224, 224)
 CLASS_NAMES = ['Angry', 'Happy', 'Sad', 'Surprise']
 
-# --- Load Model (cached) ---
+
 @st.cache_resource
 def load_model():
     model_path = "best_model.keras"
@@ -52,7 +52,7 @@ def load_model():
             gdown.download(url, model_path, quiet=False)
     return tf.keras.models.load_model(model_path)
 
-# --- Prediction ---
+
 def predict_emotion(model, image):
     if image.mode != 'RGB':
         image = image.convert('RGB')
@@ -65,9 +65,9 @@ def predict_emotion(model, image):
     pred_label = CLASS_NAMES[pred_index]
     confidence = preds[pred_index]
     
-    return pred_label, confidence, preds
+    return pred_label, confidence
 
-# --- Main App ---
+
 def main():
     uploaded_file = st.file_uploader("", type=['png','jpg','jpeg'])
     if uploaded_file is not None:
@@ -77,18 +77,17 @@ def main():
         if st.button("Analyze Image"):
             with st.spinner("Analyzing..."):
                 model = load_model()
-                pred_label, confidence, preds = predict_emotion(model, image)
-                css_class = pred_label.lower() if confidence >= 0.7 else "low-confidence"
-
-                # Show top 2 predictions
-                top2_indices = np.argsort(preds)[-2:][::-1]
-                top2_text = "<br>".join([f"{CLASS_NAMES[i]}: {preds[i]*100:.1f}%" for i in top2_indices])
+                pred_label, confidence = predict_emotion(model, image)
+                if confidence >= 0.7:
+                    css_class = pred_label.lower()
+                    message = f"<strong>Prediction:</strong> {pred_label}<br><strong>Confidence:</strong> {confidence*100:.1f}%"
+                else:
+                    css_class = "low-confidence"
+                    message = "The model is unable to determine the emotion with sufficient confidence. Human interpretation is recommended for accurate assessment."
 
                 st.markdown(f"""
                 <div class="prediction-box {css_class}">
-                    <strong>Prediction:</strong> {pred_label}<br>
-                    <strong>Confidence:</strong> {confidence*100:.1f}%<br>
-                    <strong>Top 2:</strong><br>{top2_text}
+                    {message}
                 </div>
                 """, unsafe_allow_html=True)
 
