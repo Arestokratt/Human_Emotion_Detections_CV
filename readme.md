@@ -33,7 +33,7 @@
   <h2>Demo</h2>
   <ul>
     <li><strong>Live App</strong>: <a href="https://human-emotion-detection-cv.streamlit.app/">Try it here</a></li>
-    <li><strong>Full Project Docs</strong>: <a href="https://adittomahmood.vercel.app/project-docs/5">Read here</a></li>
+    <li><strong>Full Project Docs</strong>: <a href="https://adittomahmood.vercel.app/human-emotion-detection-cv">Read here</a></li>
   </ul>
   <div align="center">
     <h2>🌐 LET'S CONNECT & COLLABORATE</h2>
