@@ -1,4 +1,3 @@
-# MAIN.py
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import tensorflow as tf
@@ -7,29 +6,35 @@ import cv2
 from PIL import Image, ImageTk
 import os
 import threading
-from collections import defaultdict
+from collections import Counter
 
 
 class EmotionDetectionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Human Emotion Detection")
-        self.root.geometry("1400x900")
+        self.root.geometry("1400x700")
         self.root.configure(bg='#f0f0f0')
 
         # Загружаем модели
         self.models = {}
-        self.current_model = None
-        self.current_model_name = None
         self.face_cascade = None
 
         # Разные размеры для разных моделей
-        self.IMG_SIZE_224 = (224, 224)  # Для VGG16, MobileNet, EfficientNet
+        self.IMG_SIZE_224 = (224, 224)  # Для VGG16, MobileNet
         self.IMG_SIZE_299 = (299, 299)  # Для Xception
 
         self.CLASS_NAMES = ['Злость', 'Радость', 'Грусть', 'Удивление']
         self.current_image = None
         self.current_image_path = None
+
+        # Цвета для эмоций
+        self.emotion_colors = {
+            'Злость': '#d84315',
+            'Радость': '#2e7d32',
+            'Грусть': '#c0392b',
+            'Удивление': '#1e88e5'
+        }
 
         # Загружаем каскад Хаара и модели
         self.load_face_cascade()
@@ -82,7 +87,7 @@ class EmotionDetectionApp:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         models_dir = os.path.join(base_dir, 'model')
 
-        # Только нужные модели (БЕЗ ЗАПАСНЫХ)
+        # Модели для загрузки
         models_to_load = [
             ('xception_best.keras', 'Xception', self.IMG_SIZE_299),
             ('vgg16_best.keras', 'VGG16', self.IMG_SIZE_224),
@@ -109,20 +114,14 @@ class EmotionDetectionApp:
                     loaded_names.append(model_name)
                     print(f"✓ Загружена: {model_name} (размер: {img_size[0]}x{img_size[1]})")
                 else:
-                    print(f"✗ Файл {model_file} не найден")
+                    print(f"✗ Файл {model_file} не найден в {models_dir}")
             except Exception as e:
                 print(f"✗ Ошибка загрузки {model_name}: {e}")
 
-        # Обновляем интерфейс
+        # Обновляем статус
         if loaded_count > 0:
-            # Выбираем первую модель по умолчанию
-            first_model = list(self.models.keys())[0]
-            self.current_model_name = first_model
-            self.current_model = self.models[first_model]['model']
-
-            status_text = f"Загружено моделей: {loaded_count} - {', '.join(loaded_names)}"
+            status_text = f"Загружено моделей: {loaded_count} - {', '.join(loaded_names)} ✓"
             self.root.after(0, self.update_status, status_text, "green")
-            self.root.after(0, self.update_model_selector)
         else:
             self.root.after(0, self.update_status, "Модели не загружены ✗", "red")
 
@@ -130,129 +129,127 @@ class EmotionDetectionApp:
         """Обновление статуса"""
         self.status_label.config(text=text, foreground=color)
 
-    def update_model_selector(self):
-        """Обновление выпадающего списка"""
-        if self.models:
-            model_names = list(self.models.keys())
-            self.model_combo['values'] = model_names
-            self.model_combo.set(model_names[0])
-
     def create_widgets(self):
+        # Главный контейнер
+        main_container = tk.Frame(self.root, bg='#f0f0f0')
+        main_container.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # ЛЕВАЯ ЧАСТЬ (изображение и результат)
+        left_frame = tk.Frame(main_container, bg='#f0f0f0')
+        left_frame.pack(side='left', fill='both', expand=True, padx=(0, 20))
+
         # Заголовок
         title = tk.Label(
-            self.root,
+            left_frame,
             text="Распознавание эмоций",
             font=("Arial", 24, "bold"),
             bg='#f0f0f0',
             fg='#1a2a44'
         )
-        title.pack(pady=20)
+        title.pack(pady=(0, 20))
 
-        # Статус
+        # Статус модели
         self.status_label = tk.Label(
-            self.root,
+            left_frame,
             text="Загрузка моделей...",
             font=("Arial", 10),
             bg='#f0f0f0',
             fg='orange'
         )
-        self.status_label.pack()
-
-        # Выбор модели
-        model_frame = tk.Frame(self.root, bg='#f0f0f0')
-        model_frame.pack(pady=10)
-
-        tk.Label(
-            model_frame,
-            text="Выберите модель:",
-            font=("Arial", 11),
-            bg='#f0f0f0'
-        ).pack(side='left', padx=5)
-
-        self.model_combo = ttk.Combobox(
-            model_frame,
-            font=("Arial", 11),
-            state="readonly",
-            width=20
-        )
-        self.model_combo.pack(side='left', padx=5)
-        self.model_combo.bind('<<ComboboxSelected>>', self.on_model_change)
+        self.status_label.pack(pady=(0, 20))
 
         # Кнопка загрузки
         upload_btn = tk.Button(
-            self.root,
-            text="Выбрать изображение",
+            left_frame,
+            text="📁 Выбрать изображение",
             command=self.upload_image,
             font=("Arial", 12),
             bg='#1a2a44',
             fg='white',
             padx=20,
             pady=10,
-            cursor="hand2"
+            cursor="hand2",
+            relief='flat'
         )
-        upload_btn.pack(pady=20)
+        upload_btn.pack(pady=(0, 20))
 
-        # Изображение
-        self.image_frame = tk.Frame(self.root, bg='#f0f0f0')
+        # Фрейм для изображения
+        self.image_frame = tk.Frame(left_frame, bg='white', relief='solid', bd=1)
         self.image_frame.pack(pady=10)
-        self.image_label = tk.Label(self.image_frame, bg='#f0f0f0')
-        self.image_label.pack()
 
-        # Результаты
-        self.result_frame = tk.Frame(self.root, bg='#f0f0f0')
-        self.result_frame.pack(pady=20)
+        # Метка для изображения
+        self.image_label = tk.Label(self.image_frame, bg='white')
+        self.image_label.pack(padx=10, pady=10)
 
+        # Фрейм для результата
+        result_frame = tk.Frame(left_frame, bg='#f0f0f0')
+        result_frame.pack(pady=20, fill='x')
+
+        # Метка для результата
+        self.result_label = tk.Label(
+            result_frame,
+            text="",
+            font=("Arial", 18, "bold"),
+            bg='#f0f0f0',
+            wraplength=400
+        )
+        self.result_label.pack()
+
+        # Кнопка анализа
         self.analyze_btn = tk.Button(
-            self.result_frame,
-            text="Анализировать",
+            left_frame,
+            text="🔍 Анализировать",
             command=self.analyze_image,
-            font=("Arial", 12),
+            font=("Arial", 14, "bold"),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=30,
+            pady=12,
             state="disabled",
-            cursor="hand2"
+            cursor="hand2",
+            relief='flat'
         )
-        self.analyze_btn.pack()
+        self.analyze_btn.pack(pady=20)
 
-        self.result_label = tk.Label(
-            self.result_frame,
-            text="",
-            font=("Arial", 14, "bold"),
-            bg='#f0f0f0',
-            wraplength=500
-        )
-        self.result_label.pack(pady=5)
+        # ПРАВАЯ ЧАСТЬ (голосование)
+        right_frame = tk.Frame(main_container, bg='#f0f0f0', width=450)
+        right_frame.pack(side='right', fill='both', expand=False)
+        right_frame.pack_propagate(False)
 
-        self.info_label = tk.Label(
-            self.result_frame,
-            text="",
-            font=("Arial", 10),
+        # Заголовок голосования
+        vote_title = tk.Label(
+            right_frame,
+            text="🗳️ Результаты голосования",
+            font=("Arial", 16, "bold"),
             bg='#f0f0f0',
-            fg='#555555',
-            wraplength=600,
-            justify='left'
+            fg='#1a2a44'
         )
-        self.info_label.pack(pady=5)
+        vote_title.pack(pady=(0, 20))
+
+        # Фрейм для результатов голосования
+        self.vote_frame = tk.Frame(right_frame, bg='#f0f0f0')
+        self.vote_frame.pack(fill='both', expand=True)
+
+        # Изначально показываем сообщение
+        self.vote_info_label = tk.Label(
+            self.vote_frame,
+            text="Загрузите изображение\nи нажмите 'Анализировать'",
+            font=("Arial", 12),
+            bg='#f0f0f0',
+            fg='#7f8c8d',
+            justify='center'
+        )
+        self.vote_info_label.pack(expand=True)
 
         # Footer
         footer = tk.Label(
             self.root,
-            text="Developed by: Galaov, Morozov, Shipul, Jdanov, Janabaev",
+            text="Developed by: Galaov, Morozov, Shipul, Jdanov, Janabaev | Ансамбль из 3 моделей",
             font=("Arial", 9),
             bg='#f0f0f0',
             fg='#7f8c8d'
         )
         footer.pack(side="bottom", pady=10)
-
-    def on_model_change(self, event):
-        """Смена модели"""
-        model_name = self.model_combo.get()
-        if model_name in self.models:
-            self.current_model_name = model_name
-            self.current_model = self.models[model_name]['model']
-            print(f"✓ Выбрана модель: {model_name}")
 
     def upload_image(self):
         """Загрузка изображения"""
@@ -264,15 +261,133 @@ class EmotionDetectionApp:
             self.current_image_path = file_path
             self.current_image = Image.open(file_path)
 
+            # Отображаем изображение
             display_image = self.current_image.copy()
             display_image.thumbnail((400, 400))
             photo = ImageTk.PhotoImage(display_image)
             self.image_label.config(image=photo)
             self.image_label.image = photo
 
+            # Активируем кнопку анализа
             self.analyze_btn.config(state="normal")
+
+            # Очищаем результаты
             self.result_label.config(text="")
-            self.info_label.config(text="")
+            self.clear_vote_display()
+
+    def clear_vote_display(self):
+        """Очистка отображения голосования"""
+        for widget in self.vote_frame.winfo_children():
+            widget.destroy()
+
+        self.vote_info_label = tk.Label(
+            self.vote_frame,
+            text="Ожидание анализа...",
+            font=("Arial", 12),
+            bg='#f0f0f0',
+            fg='#7f8c8d',
+            justify='center'
+        )
+        self.vote_info_label.pack(expand=True)
+
+    def update_vote_display(self, all_predictions, all_confidences, votes):
+        """Обновление отображения голосования"""
+        # Очищаем фрейм
+        for widget in self.vote_frame.winfo_children():
+            widget.destroy()
+
+        # Заголовок
+        header = tk.Label(
+            self.vote_frame,
+            text="📊 Результаты голосования",
+            font=("Arial", 12, "bold"),
+            bg='#f0f0f0',
+            fg='#1a2a44'
+        )
+        header.pack(pady=(0, 10))
+
+        # Отображаем голоса
+        vote_text = "🎯 Голосование:\n"
+        for emotion, count in votes.most_common():
+            vote_text += f"  {emotion}: {count} голос(а/ов)\n"
+
+        vote_label = tk.Label(
+            self.vote_frame,
+            text=vote_text,
+            font=("Arial", 11),
+            bg='#f0f0f0',
+            fg='#2c3e50',
+            justify='left'
+        )
+        vote_label.pack(pady=(0, 15))
+
+        # Разделитель
+        separator = tk.Frame(self.vote_frame, height=2, bg='#bdc3c7')
+        separator.pack(fill='x', pady=10)
+
+        # Результаты отдельных моделей
+        models_title = tk.Label(
+            self.vote_frame,
+            text="🤖 Результаты моделей:",
+            font=("Arial", 11, "bold"),
+            bg='#f0f0f0',
+            fg='#1a2a44'
+        )
+        models_title.pack(pady=(10, 10))
+
+        # Для каждой модели создаем строку с прогресс-баром
+        for model_name in self.models.keys():
+            if model_name in all_predictions:
+                emotion = all_predictions[model_name]
+                confidence = all_confidences[model_name]
+                color = self.emotion_colors.get(emotion, '#7f8c8d')
+
+                # Фрейм для одной модели
+                model_frame = tk.Frame(self.vote_frame, bg='#f0f0f0')
+                model_frame.pack(fill='x', pady=5)
+
+                # Название модели
+                name_label = tk.Label(
+                    model_frame,
+                    text=f"{model_name}:",
+                    font=("Arial", 10, "bold"),
+                    bg='#f0f0f0',
+                    width=12,
+                    anchor='w'
+                )
+                name_label.pack(side='left')
+
+                # Эмоция
+                emotion_label = tk.Label(
+                    model_frame,
+                    text=emotion,
+                    font=("Arial", 10),
+                    bg='#f0f0f0',
+                    fg=color,
+                    width=10,
+                    anchor='w'
+                )
+                emotion_label.pack(side='left')
+
+                # Процент
+                percent_label = tk.Label(
+                    model_frame,
+                    text=f"{confidence * 100:.1f}%",
+                    font=("Arial", 9),
+                    bg='#f0f0f0',
+                    width=8,
+                    anchor='w'
+                )
+                percent_label.pack(side='left')
+
+                # Прогресс-бар
+                progress = ttk.Progressbar(
+                    model_frame,
+                    length=150,
+                    mode='determinate',
+                    value=confidence * 100
+                )
+                progress.pack(side='left', padx=(5, 0))
 
     def analyze_image(self):
         """Анализ изображения"""
@@ -288,7 +403,7 @@ class EmotionDetectionApp:
 
         if not has_face:
             self.result_label.config(
-                text="Лицо не обнаружено!",
+                text="❌ Лицо не обнаружено!",
                 foreground="red"
             )
             return
@@ -298,11 +413,11 @@ class EmotionDetectionApp:
         thread.daemon = True
         thread.start()
 
-        self.result_label.config(text="Анализ...", foreground="blue")
+        self.result_label.config(text="⏳ Анализ...", foreground="blue")
         self.analyze_btn.config(state="disabled")
 
     def do_analysis(self, face_roi):
-        """Анализ изображения всеми моделями"""
+        """Анализ изображения с голосованием"""
         try:
             all_predictions = {}
             all_confidences = {}
@@ -328,50 +443,36 @@ class EmotionDetectionApp:
 
                 print(f"{model_name}: {pred_label} ({confidence:.3f})")
 
-            # Голосование
-            votes = defaultdict(int)
-            for pred in all_predictions.values():
-                votes[pred] += 1
+            # ГОЛОСОВАНИЕ
+            votes = Counter(all_predictions.values())
+            final_emotion = votes.most_common(1)[0][0]
 
-            final_emotion = max(votes, key=votes.get)
+            # Средняя уверенность по всем моделям
             avg_confidence = np.mean(list(all_confidences.values()))
-
-            # Формируем отчет
-            detail_text = "Результаты всех моделей:\n"
-            for model_name in all_predictions:
-                detail_text += f"• {model_name}: {all_predictions[model_name]} ({all_confidences[model_name] * 100:.1f}%)\n"
 
             # Обновляем интерфейс
             self.root.after(0, self.update_result,
-                            final_emotion, avg_confidence, detail_text)
+                            final_emotion, avg_confidence,
+                            all_predictions, all_confidences, votes)
 
         except Exception as e:
             self.root.after(0, lambda: self.result_label.config(
-                text=f"Ошибка: {str(e)}",
+                text=f"❌ Ошибка: {str(e)}",
                 foreground="red"
             ))
             self.root.after(0, lambda: self.analyze_btn.config(state="normal"))
 
-    def update_result(self, label, confidence, detail_text):
+    def update_result(self, emotion, confidence, all_predictions, all_confidences, votes):
         """Обновление результата"""
-        colors = {
-            'Злость': '#d84315',
-            'Радость': '#2e7d32',
-            'Грусть': '#c0392b',
-            'Удивление': '#1e88e5'
-        }
-        color = colors.get(label, 'black')
+        color = self.emotion_colors.get(emotion, 'black')
 
         self.result_label.config(
-            text=f"Обнаружена эмоция: {label}\n"
-                 f"Уверенность: {confidence * 100:.1f}%",
+            text=f"🎭 {emotion}\n📊 Уверенность: {confidence * 100:.1f}%",
             foreground=color
         )
 
-        self.info_label.config(
-            text=detail_text,
-            foreground="#555555"
-        )
+        # Обновляем отображение голосования
+        self.update_vote_display(all_predictions, all_confidences, votes)
 
         self.analyze_btn.config(state="normal")
 
