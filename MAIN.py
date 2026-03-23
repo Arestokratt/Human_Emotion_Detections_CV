@@ -302,8 +302,10 @@ class EmotionDetectionApp:
         self.analyze_btn.config(state="disabled")
 
     def do_analysis(self, face_roi):
-        """Анализ изображения всеми моделями"""
+        """Анализ изображения с голосованием"""
         try:
+            from collections import Counter
+
             all_predictions = {}
             all_confidences = {}
 
@@ -328,18 +330,21 @@ class EmotionDetectionApp:
 
                 print(f"{model_name}: {pred_label} ({confidence:.3f})")
 
-            # Голосование
-            votes = defaultdict(int)
-            for pred in all_predictions.values():
-                votes[pred] += 1
+            # ГОЛОСОВАНИЕ
+            votes = Counter(all_predictions.values())
+            final_emotion = votes.most_common(1)[0][0]
 
-            final_emotion = max(votes, key=votes.get)
+            # Средняя уверенность по всем моделям
             avg_confidence = np.mean(list(all_confidences.values()))
 
-            # Формируем отчет
-            detail_text = "Результаты всех моделей:\n"
+            # Формируем детальный отчет
+            detail_text = "Результаты голосования:\n"
+            for emotion, count in votes.most_common():
+                detail_text += f"  {emotion}: {count} голос(а/ов)\n"
+
+            detail_text += "\nРезультаты отдельных моделей:\n"
             for model_name in all_predictions:
-                detail_text += f"• {model_name}: {all_predictions[model_name]} ({all_confidences[model_name] * 100:.1f}%)\n"
+                detail_text += f"  {model_name}: {all_predictions[model_name]} ({all_confidences[model_name] * 100:.1f}%)\n"
 
             # Обновляем интерфейс
             self.root.after(0, self.update_result,
