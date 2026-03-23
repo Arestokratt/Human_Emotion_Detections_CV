@@ -296,6 +296,25 @@ class EmotionDetectionApp:
         for widget in self.vote_frame.winfo_children():
             widget.destroy()
 
+        # Определяем победителя
+        final_emotion = votes.most_common(1)[0][0]
+        winning_votes = votes[final_emotion]
+
+        # Находим максимальную уверенность среди победивших моделей
+        winning_confidences = []
+        for model_name, pred_label in all_predictions.items():
+            if pred_label == final_emotion:
+                winning_confidences.append(all_confidences[model_name])
+
+        max_confidence = max(winning_confidences) if winning_confidences else 0.0
+
+        # Находим модель с максимальной уверенностью
+        best_model = None
+        for model_name, pred_label in all_predictions.items():
+            if pred_label == final_emotion and all_confidences[model_name] == max_confidence:
+                best_model = model_name
+                break
+
         # Заголовок
         header = tk.Label(
             self.vote_frame,
@@ -306,10 +325,17 @@ class EmotionDetectionApp:
         )
         header.pack(pady=(0, 10))
 
-        # Отображаем голоса
+        # Отображаем голоса с выделением победителя
         vote_text = "🎯 Голосование:\n"
         for emotion, count in votes.most_common():
-            vote_text += f"  {emotion}: {count} голос(а/ов)\n"
+            if emotion == final_emotion:
+                vote_text += f"  🏆 {emotion}: {count} голос(а/ов) - ПОБЕДИТЕЛЬ!\n"
+            else:
+                vote_text += f"  {emotion}: {count} голос(а/ов)\n"
+
+        # Добавляем информацию о максимальной уверенности
+        vote_text += f"\n📈 Максимальная уверенность среди победивших моделей:\n"
+        vote_text += f"  {final_emotion}: {max_confidence * 100:.1f}% (модель {best_model})"
 
         vote_label = tk.Label(
             self.vote_frame,
@@ -342,17 +368,29 @@ class EmotionDetectionApp:
                 confidence = all_confidences[model_name]
                 color = self.emotion_colors.get(emotion, '#7f8c8d')
 
-                # Фрейм для одной модели
-                model_frame = tk.Frame(self.vote_frame, bg='#f0f0f0')
-                model_frame.pack(fill='x', pady=5)
+                # Подсвечиваем модели, которые проголосовали за победителя
+                is_winner = (emotion == final_emotion)
+                is_best = (is_winner and confidence == max_confidence and best_model == model_name)
 
-                # Название модели
+                bg_color = '#e8f5e9' if is_winner else '#f0f0f0'
+
+                # Фрейм для одной модели
+                model_frame = tk.Frame(self.vote_frame, bg=bg_color)
+                model_frame.pack(fill='x', pady=3)
+
+                # Название модели с иконкой
+                name_text = f"{model_name}:"
+                if is_best:
+                    name_text = f"⭐ {name_text}"
+                elif is_winner:
+                    name_text = f"🏆 {name_text}"
+
                 name_label = tk.Label(
                     model_frame,
-                    text=f"{model_name}:",
-                    font=("Arial", 10, "bold"),
-                    bg='#f0f0f0',
-                    width=12,
+                    text=name_text,
+                    font=("Arial", 10, "bold" if is_winner else "normal"),
+                    bg=bg_color,
+                    width=14,
                     anchor='w'
                 )
                 name_label.pack(side='left')
@@ -361,8 +399,8 @@ class EmotionDetectionApp:
                 emotion_label = tk.Label(
                     model_frame,
                     text=emotion,
-                    font=("Arial", 10),
-                    bg='#f0f0f0',
+                    font=("Arial", 10, "bold" if is_winner else "normal"),
+                    bg=bg_color,
                     fg=color,
                     width=10,
                     anchor='w'
@@ -373,8 +411,8 @@ class EmotionDetectionApp:
                 percent_label = tk.Label(
                     model_frame,
                     text=f"{confidence * 100:.1f}%",
-                    font=("Arial", 9),
-                    bg='#f0f0f0',
+                    font=("Arial", 9, "bold" if is_best else "normal"),
+                    bg=bg_color,
                     width=8,
                     anchor='w'
                 )
@@ -388,6 +426,28 @@ class EmotionDetectionApp:
                     value=confidence * 100
                 )
                 progress.pack(side='left', padx=(5, 0))
+
+                # Добавляем метки
+                if is_best:
+                    best_label = tk.Label(
+                        model_frame,
+                        text="ЛУЧШИЙ",
+                        font=("Arial", 8, "bold"),
+                        bg=bg_color,
+                        fg='#d84315',
+                        width=8
+                    )
+                    best_label.pack(side='left')
+                elif is_winner:
+                    winner_label = tk.Label(
+                        model_frame,
+                        text="✓",
+                        font=("Arial", 10, "bold"),
+                        bg=bg_color,
+                        fg='#2e7d32',
+                        width=3
+                    )
+                    winner_label.pack(side='left')
 
     def analyze_image(self):
         """Анализ изображения"""
@@ -447,12 +507,21 @@ class EmotionDetectionApp:
             votes = Counter(all_predictions.values())
             final_emotion = votes.most_common(1)[0][0]
 
-            # Средняя уверенность по всем моделям
-            avg_confidence = np.mean(list(all_confidences.values()))
+            # Берем МАКСИМАЛЬНУЮ уверенность среди моделей, которые предсказали победившую эмоцию
+            winning_confidences = []
+            for model_name, pred_label in all_predictions.items():
+                if pred_label == final_emotion:
+                    winning_confidences.append(all_confidences[model_name])
+
+            # Уверенность = МАКСИМУМ среди моделей, которые проголосовали за победителя
+            if winning_confidences:
+                final_confidence = max(winning_confidences)  # ← ИЗМЕНЕНО: max вместо mean
+            else:
+                final_confidence = 0.0
 
             # Обновляем интерфейс
             self.root.after(0, self.update_result,
-                            final_emotion, avg_confidence,
+                            final_emotion, final_confidence,
                             all_predictions, all_confidences, votes)
 
         except Exception as e:
@@ -466,8 +535,12 @@ class EmotionDetectionApp:
         """Обновление результата"""
         color = self.emotion_colors.get(emotion, 'black')
 
+        # Получаем количество голосов за победившую эмоцию
+        winning_votes = votes[emotion]
+        total_models = len(self.models)
+
         self.result_label.config(
-            text=f"🎭 {emotion}\n📊 Уверенность: {confidence * 100:.1f}%",
+            text=f"🎭 {emotion}\n📊 Уверенность: {confidence * 100:.1f}%\n🗳️ Голосов: {winning_votes}/{total_models}",
             foreground=color
         )
 
